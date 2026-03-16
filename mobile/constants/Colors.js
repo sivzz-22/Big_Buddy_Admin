@@ -1,0 +1,16 @@
+export default {
+  background: '#000000',
+  surface: '#121212',
+  primary: '#99D935',
+  secondary: '#AAAAAA',
+  accent: '#99D935',
+  border: '#2C2C2C',
+  text: '#FFFFFF',
+  textSecondary: '#AAAAAA',
+  success: '#28A745',
+  warning: '#FFC107',
+  error: '#DC3545',
+  inputBackground: '#1E1E1E',
+  buttonPrimary: '#99D935',
+  buttonPrimaryText: '#000000',
+};
