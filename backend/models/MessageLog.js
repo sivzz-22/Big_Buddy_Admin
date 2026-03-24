@@ -4,9 +4,12 @@ const messageLogSchema = new mongoose.Schema({
     memberName: { type: String, required: true },
     memberPhone: { type: String },
     memberEmail: { type: String },
+    memberId: { type: mongoose.Schema.Types.ObjectId, ref: 'Member' }, // for in-app inbox
     message: { type: String, required: true },
-    channel: { type: String, required: true }, // WhatsApp, SMS, Mail
-    type: { type: String }, // invoice, expired, absent, birthday, plans
+    channel: { type: String, required: true }, // WhatsApp, SMS, Mail, App
+    type: { type: String }, // invoice, expired, absent, birthday, plans, general
+    senderName: { type: String, default: 'BigBuddy Admin' },
+    isRead: { type: Boolean, default: false },
     date: { type: Date, default: Date.now },
 }, {
     timestamps: true

@@ -38,7 +38,13 @@ const Login = () => {
       if (response.data.token) {
         await AsyncStorage.setItem('userToken', response.data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(response.data));
-        router.replace('/(drawer)/(tabs)');
+        
+        // Navigation based on role
+        if (response.data.role === 'member') {
+          router.replace('/(user)/(tabs)');
+        } else {
+          router.replace('/(drawer)/(tabs)');
+        }
       }
     } catch (error) {
       console.log("Login error:", error.response?.data?.message || error.message);
@@ -84,7 +90,13 @@ const Login = () => {
       if (res.data.token) {
         await AsyncStorage.setItem('userToken', res.data.token);
         await AsyncStorage.setItem('userData', JSON.stringify(res.data));
-        router.replace('/(drawer)/(tabs)');
+        
+        // Navigation based on role
+        if (res.data.role === 'member') {
+          router.replace('/(user)/(tabs)');
+        } else {
+          router.replace('/(drawer)/(tabs)');
+        }
       }
     } catch (error) {
       console.log("Google Auth error:", error);

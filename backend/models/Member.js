@@ -4,6 +4,7 @@ const memberSchema = new mongoose.Schema({
     name: { type: String, required: true },
     memberID: { type: String, required: true, unique: true },
     password: { type: String, required: true },
+    visiblePassword: { type: String }, // Plain text for admin reference
     phone: { type: String, required: true },
     email: { type: String, lowercase: true },
     dob: { type: String, required: true },
@@ -33,20 +34,23 @@ const memberSchema = new mongoose.Schema({
 });
 
 // Auto-update status based on expiryDate
-memberSchema.pre("save", function (next) {
+memberSchema.pre("save", async function () {
     if (this.expiryDate) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expiry = new Date(this.expiryDate);
-        expiry.setHours(0, 0, 0, 0);
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expiry = new Date(this.expiryDate);
+            expiry.setHours(0, 0, 0, 0);
 
-        if (expiry < today) {
-            this.status = 'Expired';
-        } else {
-            this.status = 'Active';
+            if (expiry < today) {
+                this.status = 'Expired';
+            } else {
+                this.status = 'Active';
+            }
+        } catch (e) {
+            console.error("Error in Member pre-save:", e);
         }
     }
-    next();
 });
 
 const Member = mongoose.model("Member", memberSchema);

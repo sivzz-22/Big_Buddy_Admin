@@ -107,7 +107,8 @@ const Signup = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.header}>CREATE ACCOUNT</Text>
-            <Text style={styles.subHeader}>Join us today!</Text>
+            <Text style={styles.subHeader}>Admin Registration (Requires @bigbuddy.com)</Text>
+            <Text style={styles.infoText}>Members: Please ask your gym admin to create your account.</Text>
 
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>FULL NAME</Text>
@@ -198,9 +199,17 @@ const getStyles = (colors) => StyleSheet.create({
     },
     subHeader: {
         fontSize: 16,
-        color: colors.secondary,
-        marginBottom: 40,
+        color: colors.primary,
+        fontWeight: 'bold',
+        marginBottom: 5,
         textAlign: 'center',
+    },
+    infoText: {
+        fontSize: 12,
+        color: colors.secondary,
+        textAlign: 'center',
+        marginBottom: 30,
+        fontStyle: 'italic',
     },
     inputContainer: {
         width: '100%',

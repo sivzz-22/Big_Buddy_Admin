@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "BigBuddy",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -46,8 +45,10 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": false
+      "reactCompiler": false,
+      "reactNativeArchitecture": true
     },
+    "owner": "sivzz",
     "extra": {
       "router": {},
       "eas": {

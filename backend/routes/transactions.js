@@ -66,6 +66,16 @@ router.post("/", async (req, res) => {
     try {
         const { memberID, memberName, amount, paymentMode, planType, description, date } = req.body;
 
+        // Verify member exists first if memberID is provided
+        if (memberID) {
+            const memberExists = await Member.findById(memberID);
+            if (!memberExists) {
+                return res.status(404).json({ message: "Selected member does not exist." });
+            }
+        } else {
+             return res.status(400).json({ message: "Member ID is required for a transaction." });
+        }
+
         const transaction = new Transaction({
             memberID,
             memberName,
@@ -79,7 +89,8 @@ router.post("/", async (req, res) => {
         const savedTransaction = await transaction.save();
 
         // Update member balance and membership status if memberID is provided
-        if (memberID) {
+        // skipMemberUpdate is used when the financials were already handled during member creation/update
+        if (memberID && !req.body.skipMemberUpdate) {
             const member = await Member.findById(memberID);
             if (member) {
                 // Update basic financials
@@ -89,7 +100,7 @@ router.post("/", async (req, res) => {
 
                 // Membership Extension Logic
                 // Only extend if a specific plan type is mentioned and payment is significant
-                if (planType && amount > 0) {
+                if (planType && Number(amount) > 0) {
                     let monthsToAdd = 0;
                     const pt = planType.toLowerCase();
                     if (pt.includes('month')) monthsToAdd = 1;

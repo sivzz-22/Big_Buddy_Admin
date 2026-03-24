@@ -13,11 +13,25 @@ router.get("/", async (req, res) => {
     }
 });
 
+// Get single diet plan by ID
+router.get("/:id", async (req, res) => {
+    try {
+        const dp = await DietPlan.findById(req.params.id);
+        if (dp) {
+            res.json(dp);
+        } else {
+            res.status(404).json({ message: "Diet plan not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Create a diet plan
 router.post("/", async (req, res) => {
-    const { name, meals, cals, plan, icon } = req.body;
+    const { name, meals, cals, mealSchedule, plan, icon } = req.body;
     try {
-        const dp = await DietPlan.create({ name, meals, cals, plan, icon });
+        const dp = await DietPlan.create({ name, meals, cals, mealSchedule: mealSchedule || [], plan: plan || "", icon });
         res.status(201).json(dp);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -26,14 +40,15 @@ router.post("/", async (req, res) => {
 
 // Update a diet plan
 router.put("/:id", async (req, res) => {
-    const { name, meals, cals, plan, icon } = req.body;
+    const { name, meals, cals, mealSchedule, plan, icon } = req.body;
     try {
         const dp = await DietPlan.findById(req.params.id);
         if (dp) {
             dp.name = name || dp.name;
             dp.meals = meals || dp.meals;
             dp.cals = cals || dp.cals;
-            dp.plan = plan || dp.plan;
+            if (mealSchedule !== undefined) dp.mealSchedule = mealSchedule;
+            if (plan !== undefined) dp.plan = plan;
             dp.icon = icon || dp.icon;
             const updatedPlan = await dp.save();
             res.json(updatedPlan);

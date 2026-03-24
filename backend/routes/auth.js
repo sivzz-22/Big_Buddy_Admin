@@ -1,6 +1,8 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import Member from "../models/Member.js";
 
 const router = express.Router();
 
@@ -18,6 +20,10 @@ router.post("/signup", async (req, res) => {
     const { name, email, password } = req.body;
 
     try {
+        if (!email.toLowerCase().endsWith("@bigbuddy.com")) {
+            return res.status(403).json({ message: "Only @bigbuddy.com emails can register as Admin/Gym Owner." });
+        }
+
         const userExists = await User.findOne({ email });
 
         if (userExists) {
@@ -35,6 +41,7 @@ router.post("/signup", async (req, res) => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                role: user.role,
                 token: generateToken(user._id),
             });
         } else {
@@ -52,19 +59,40 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        let user = null;
+        let role = null;
+        let memberDetails = null;
 
-        if (user && (await user.comparePassword(password))) {
-            res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                token: generateToken(user._id),
-            });
+        if (email.toLowerCase().endsWith("@bigbuddy.com")) {
+            // Check User collection for Admins
+            user = await User.findOne({ email });
+            if (user && (await user.comparePassword(password))) {
+                role = user.role || "admin";
+            } else {
+                return res.status(401).json({ message: "Invalid admin email or password" });
+            }
         } else {
-            res.status(401).json({ message: "Invalid email or password" });
+            // Check Member collection for Gym Users
+            const member = await Member.findOne({ email });
+            if (member && (await bcrypt.compare(password, member.password))) {
+                user = member;
+                role = "member";
+                memberDetails = member;
+            } else {
+                return res.status(401).json({ message: "Invalid user email or password" });
+            }
         }
+
+        res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: role,
+            token: generateToken(user._id),
+            memberId: memberDetails ? memberDetails.memberID : null
+        });
     } catch (error) {
+        console.error("Login error:", error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -76,28 +104,44 @@ router.post("/google", async (req, res) => {
     const { name, email, googleId } = req.body;
 
     try {
-        let user = await User.findOne({ email });
+        let user = null;
+        let role = null;
+        let memberDetails = null;
 
-        if (user) {
-            // If user exists but doesn't have googleId, update it
-            if (!user.googleId) {
-                user.googleId = googleId;
-                await user.save();
+        if (email.toLowerCase().endsWith("@bigbuddy.com")) {
+            // Admin flow
+            user = await User.findOne({ email });
+            
+            if (user) {
+                if (!user.googleId) {
+                    user.googleId = googleId;
+                    await user.save();
+                }
+            } else {
+                user = await User.create({ name, email, googleId, role: 'admin' });
             }
+            role = user.role || 'admin';
         } else {
-            // New user from Google
-            user = await User.create({
-                name,
-                email,
-                googleId,
-            });
+            // Member flow
+            const member = await Member.findOne({ email });
+            
+            if (!member) {
+                return res.status(403).json({ message: "No active gym membership found for this email. Please contact the admin." });
+            }
+            
+            // Link Google ID if not already (Optional, currently Member model might not have googleId, but it handles login)
+            user = member;
+            role = 'member';
+            memberDetails = member;
         }
 
         res.json({
             _id: user._id,
             name: user.name,
             email: user.email,
+            role: role,
             token: generateToken(user._id),
+            memberId: memberDetails ? memberDetails.memberID : null
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

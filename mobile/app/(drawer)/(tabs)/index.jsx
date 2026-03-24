@@ -536,7 +536,7 @@ export default function Dashboard() {
                     <StatCard
                         title="Total Members"
                         value={s.totalMembers}
-                        icon="people"
+                        icon="account-group"
                         color="#42A5F5"
                         subtext="registered"
                         onPress={() => router.push('/members')}
@@ -545,7 +545,7 @@ export default function Dashboard() {
                     <StatCard
                         title="Active"
                         value={s.activeMembers}
-                        icon="checkmark-circle"
+                        icon="check-circle"
                         color={colors.success}
                         subtext="currently"
                         onPress={() => router.push({ pathname: '/members', params: { initialFilter: 'Active' } })}
@@ -566,7 +566,7 @@ export default function Dashboard() {
                     <StatCard
                         title="Expiring Soon"
                         value={s.expiringIn10Days}
-                        icon="time"
+                        icon="clock-outline"
                         color="#FFA726"
                         subtext="next 10 days"
                         onPress={() => router.push({ pathname: '/members', params: { initialFilter: 'Expiring in 10 days' } })}
@@ -577,19 +577,19 @@ export default function Dashboard() {
                 <View key="row3" style={styles.row}>
                     <StatCard
                         title="UPI Revenue"
-                        value={`₹${(s.revenue.upiRevenue / 1000).toFixed(1)}k`}
-                        icon="phone-portrait"
+                        value={`₹${((s.overallRevenue?.upiRevenue || 0) / 1000).toFixed(1)}k`}
+                        icon="cellphone"
                         color="#EF5350"
-                        subtext="digital"
+                        subtext="all time"
                         onPress={() => router.push({ pathname: '/transactions', params: { paymentMethod: 'upi' } })}
                         colors={colors}
                     />
                     <StatCard
                         title="Cash Revenue"
-                        value={`₹${(s.revenue.cashRevenue / 1000).toFixed(1)}k`}
+                        value={`₹${((s.overallRevenue?.cashRevenue || 0) / 1000).toFixed(1)}k`}
                         icon="wallet"
                         color="#66BB6A"
-                        subtext="physical"
+                        subtext="all time"
                         onPress={() => router.push({ pathname: '/transactions', params: { paymentMethod: 'cash' } })}
                         colors={colors}
                     />
@@ -643,6 +643,15 @@ export default function Dashboard() {
                 count={s.pendingInvoices}
                 color="#00BCD4"
                 onPress={() => handleReminderNavigation('invoices')}
+                colors={colors}
+            />
+            <SmartReminder
+                icon="currency-inr"
+                label="Pending Balance"
+                description="Members with outstanding dues"
+                count={s.balanceCount}
+                color="#FF5722"
+                onPress={() => handleReminderNavigation('balance')}
                 colors={colors}
             />
 

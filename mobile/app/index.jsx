@@ -13,8 +13,15 @@ export default function Index() {
     const checkLogin = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        if (token) {
-          router.replace('/(drawer)/(tabs)');
+        const userDataJson = await AsyncStorage.getItem('userData');
+        if (token && userDataJson) {
+          const userData = JSON.parse(userDataJson);
+          // Route based on role
+          if (userData.role === 'member') {
+            router.replace('/(user)/(tabs)');
+          } else {
+            router.replace('/(drawer)/(tabs)');
+          }
         }
       } catch (e) {
         console.error(e);

@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useNavigation, router } from 'expo-router';
-import { View, Text, StyleSheet, FlatList, Dimensions, ScrollView, Pressable, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Dimensions, ScrollView, Pressable, ActivityIndicator, Alert, Modal, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../../constants/ThemeContext';
 import { BarChart } from 'react-native-chart-kit';
 import axios from 'axios';
 import { API_URL } from '../../../constants/Config';
+import QRCode from 'react-native-qrcode-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -29,11 +30,16 @@ const AttendanceInfoModal = ({ visible, onClose, gymData, colors, styles }) => {
                     </View>
 
                     <View style={{ marginTop: 30, alignItems: 'center' }}>
-                        <View style={{ width: 200, height: 200, backgroundColor: '#FFF', padding: 10, borderRadius: 10 }}>
-                            <Ionicons name="qr-code" size={180} color="#000" />
+                        <View style={{ backgroundColor: '#FFF', padding: 20, borderRadius: 20 }}>
+                            <QRCode
+                                value="GYM_ATTENDANCE_CHECK_IN"
+                                size={180}
+                                color="#000"
+                                backgroundColor="#FFF"
+                            />
                         </View>
                         <Text style={{ color: colors.secondary, marginTop: 15, textAlign: 'center' }}>
-                            Members can scan this QR code or enter the code above to mark their attendance.
+                            Members scan this QR code and enter the daily code to check-in.
                         </Text>
                     </View>
 
@@ -61,6 +67,7 @@ const AttendancePage = () => {
     const [trendData, setTrendData] = useState({ labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], datasets: [{ data: [0, 0, 0, 0, 0, 0] }] });
     const [gymData, setGymData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [markingMode, setMarkingMode] = useState(false);
     const [isInfoModalVisible, setInfoModalVisible] = useState(false);
     const [memberSearch, setMemberSearch] = useState('');
@@ -91,8 +98,10 @@ const AttendancePage = () => {
     );
 
     useEffect(() => {
-        if (datesListRef.current) {
-            datesListRef.current.scrollToIndex({ index: 15, animated: true });
+        if (datesListRef.current && dates.length > 15) {
+            setTimeout(() => {
+                datesListRef.current?.scrollToIndex({ index: 15, animated: true });
+            }, 500);
         }
     }, [date]);
 
@@ -122,7 +131,13 @@ const AttendancePage = () => {
             Alert.alert("Error", "Could not load attendance data.");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchInitialData();
     };
 
     const fetchAllMembers = async () => {
@@ -215,7 +230,13 @@ const AttendancePage = () => {
 
     return (
         <View style={{ flex: 1 }}>
-            <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.container} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+                }
+            >
                 <View style={styles.calendarContainer}>
                     <View style={styles.calendarHeader}>
                         <Text style={styles.sectionTitle}>Calendar</Text>

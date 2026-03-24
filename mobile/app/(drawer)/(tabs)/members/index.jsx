@@ -1,4 +1,4 @@
-import { View, Text, FlatList, StyleSheet, Pressable, TextInput, Modal, ScrollView, Animated, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Pressable, TextInput, Modal, ScrollView, Animated, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../../constants/ThemeContext';
@@ -58,6 +58,7 @@ export default function MembersList() {
     const { initialFilter } = useLocalSearchParams();
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
     const [activeFilter, setActiveFilter] = useState(initialFilter || 'All');
     const [roleFilter, setRoleFilter] = useState('Members');
@@ -79,7 +80,13 @@ export default function MembersList() {
             Alert.alert("Error", "Could not load member list.");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchMembers();
     };
 
 
@@ -252,6 +259,9 @@ export default function MembersList() {
                     keyExtractor={item => item._id}
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={<Text style={styles.emptyText}>No {roleFilter.toLowerCase()} found.</Text>}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+                    }
                 />
             )}
 

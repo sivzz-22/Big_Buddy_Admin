@@ -66,6 +66,20 @@ router.get("/stats", async (req, res) => {
 
         const revenue = targetTransactions.length > 0 ? targetTransactions[0] : { totalRevenue: 0, upiRevenue: 0, cashRevenue: 0 };
 
+        // Overall Transaction Summary (All time)
+        const allTimeTransactions = await Transaction.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$amount" },
+                    upiRevenue: { $sum: { $cond: [{ $in: ["$paymentMode", ["UPI", "GPay"]] }, "$amount", 0] } },
+                    cashRevenue: { $sum: { $cond: [{ $eq: ["$paymentMode", "Cash"] }, "$amount", 0] } }
+                }
+            }
+        ]);
+        const overallRevenue = allTimeTransactions.length > 0 ? allTimeTransactions[0] : { totalRevenue: 0, upiRevenue: 0, cashRevenue: 0 };
+
+
         // New Members on targetDate
         const newMembersToday = await Member.countDocuments({
             role: 'member',
@@ -106,17 +120,25 @@ router.get("/stats", async (req, res) => {
         // Pending Invoices
         const pendingInvoices = await Transaction.countDocuments({ invoiceSent: false });
 
+        // Members with pending balance > 0
+        const balanceCount = await Member.countDocuments({
+            role: 'member',
+            balance: { $gt: 0 }
+        });
+
         res.json({
             totalMembers,
             activeMembers,
             expiringIn10Days,
             attendance,
             revenue,
+            overallRevenue,
             newMembersToday,
             expiredCount,
             absentCount,
             birthdayCount,
-            pendingInvoices
+            pendingInvoices,
+            balanceCount
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -164,6 +186,11 @@ router.get("/reminders/:type", async (req, res) => {
                 role: 'member',
                 $or: [{ workoutPlan: "" }, { workoutPlan: "None" }, { dietPlan: "" }, { dietPlan: "None" }]
             });
+        } else if (type === 'balance') {
+            members = await Member.find({
+                role: 'member',
+                balance: { $gt: 0 }
+            }).sort({ balance: -1 }); // Highest balance first
         } else if (type === 'invoices') {
             const pendingInvoices = await Transaction.find({ invoiceSent: false }).populate('memberID');
             return res.json(pendingInvoices); // Returns direct distinct transaction payload

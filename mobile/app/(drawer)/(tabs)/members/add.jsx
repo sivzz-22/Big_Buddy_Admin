@@ -8,8 +8,9 @@ import { API_URL } from '../../../../constants/Config';
 
 export default function AddMember() {
     const { colors } = useTheme();
-    const { type, mode, id } = useLocalSearchParams(); // type: 'member'|'trainer', mode: 'update'
+    const { type, mode, id, action } = useLocalSearchParams(); // type: 'member'|'trainer', mode: 'update', action: 'renew'
     const isUpdate = mode === 'update';
+    const isRenew = action === 'renew';
 
     const styles = getStyles(colors);
 
@@ -19,6 +20,7 @@ export default function AddMember() {
     const [dietPlans, setDietPlans] = useState([]);
     const [loading, setLoading] = useState(false);
     const [fetchingPlans, setFetchingPlans] = useState(true);
+    const [carriedBalance, setCarriedBalance] = useState(0);
 
     // Initial State
     const [formData, setFormData] = useState({
@@ -46,6 +48,7 @@ export default function AddMember() {
         balance: '0',
     });
     const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [recordNewTransaction, setRecordNewTransaction] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null);
 
@@ -81,12 +84,13 @@ export default function AddMember() {
         const plan = membershipPlans.find(p => p.name === formData.subscriptionType);
         if (plan) {
             const price = parseInt(plan.price) || 0;
+            const extra = Number(carriedBalance) || 0;
             const disc = parseInt(formData.discount) || 0;
             const paid = parseInt(formData.amountPaid) || 0;
-            const bal = Math.max(0, price - disc - paid);
+            const bal = Math.max(0, (price + extra) - disc - paid);
             setFormData(prev => ({ ...prev, balance: String(bal) }));
         }
-    }, [formData.subscriptionType, formData.discount, formData.amountPaid, membershipPlans]);
+    }, [formData.subscriptionType, formData.discount, formData.amountPaid, membershipPlans, carriedBalance]);
 
     const fetchMemberDetails = async (memberId) => {
         setLoading(true);
@@ -95,11 +99,18 @@ export default function AddMember() {
             const data = response.data;
             setFormData({
                 ...data,
-                discount: String(data.discount || 0),
-                amountPaid: String(data.amountPaid || 0),
-                balance: String(data.balance || 0),
+                password: data.visiblePassword || '', // Show the original plain text password
+                discount: isRenew ? '0' : String(data.discount || 0),
+                amountPaid: isRenew ? '' : String(data.amountPaid || 0),
+                balance: isRenew ? String(data.balance || 0) : String(data.balance || 0),
             });
-            setIsPaymentCompleted(data.isPaymentCompleted);
+
+            if (isRenew) {
+                setCarriedBalance(Number(data.balance) || 0);
+                setIsPaymentCompleted(false);
+            } else {
+                setIsPaymentCompleted(data.isPaymentCompleted);
+            }
         } catch (error) {
             console.log("Fetch member details error:", error);
             Alert.alert("Error", "Could not load member details.");
@@ -109,7 +120,7 @@ export default function AddMember() {
     };
 
     const handleSave = async () => {
-        if (!formData.name || !formData.memberID || (!isUpdate && !formData.password) || !formData.phone) {
+        if (!formData.name || !formData.memberID || (!isUpdate && !formData.password) || !formData.phone || !formData.email) {
             Alert.alert("Error", "Please fill required fields (*)");
             return;
         }
@@ -120,25 +131,34 @@ export default function AddMember() {
             if (isUpdate) {
                 await axios.put(`${API_URL}/members/${id}`, {
                     ...formData,
-                    isPaymentCompleted
+                    amountPaid: Number(formData.amountPaid) || 0,
+                    discount: Number(formData.discount) || 0,
+                    balance: Number(formData.balance) || 0,
+                    isPaymentCompleted,
+                    forceRenewal: isRenew
                 });
             } else {
                 const addRes = await axios.post(`${API_URL}/members`, {
                     ...formData,
+                    amountPaid: Number(formData.amountPaid) || 0,
+                    discount: Number(formData.discount) || 0,
+                    balance: Number(formData.balance) || 0,
                     isPaymentCompleted,
                     status: 'Active'
                 });
                 currentMemberId = addRes.data._id;
             }
 
-            if (recordNewTransaction) {
+            const paidAmount = Number(formData.amountPaid) || 0;
+            if (paidAmount > 0 && (!isUpdate || isRenew)) {
                 try {
                     await axios.post(`${API_URL}/transactions`, {
                         memberID: currentMemberId,
                         memberName: formData.name,
-                        amount: Number(formData.amountPaid) || 0,
+                        amount: paidAmount,
                         paymentMode: formData.paymentMode,
-                        planType: formData.subscriptionType || 'Monthly'
+                        planType: formData.subscriptionType || 'Monthly',
+                        skipMemberUpdate: true // Prevent double-counting as financials are already in the member object
                     });
                 } catch (txErr) {
                     console.log("Error creating transaction", txErr);
@@ -159,17 +179,34 @@ export default function AddMember() {
     const renderInput = (label, field, placeholder, keyboardType = 'default', secureTextEntry = false) => (
         <View style={styles.inputGroup}>
             <Text style={styles.label}>{label}</Text>
-            <TextInput
-                style={[styles.input, { textAlignVertical: label.includes('DESCRIPTION') ? 'top' : 'center' }]}
-                value={formData[field]}
-                onChangeText={(t) => setFormData({ ...formData, [field]: t })}
-                placeholder={placeholder}
-                placeholderTextColor={colors.secondary}
-                keyboardType={keyboardType}
-                secureTextEntry={secureTextEntry}
-                multiline={label.includes('DESCRIPTION')}
-                numberOfLines={label.includes('DESCRIPTION') ? 4 : 1}
-            />
+            <View style={{ position: 'relative' }}>
+                <TextInput
+                    style={[styles.input, { 
+                        textAlignVertical: label.includes('DESCRIPTION') ? 'top' : 'center',
+                        paddingRight: field === 'password' ? 50 : 15 
+                    }]}
+                    value={formData[field]}
+                    onChangeText={(t) => setFormData({ ...formData, [field]: t })}
+                    placeholder={placeholder}
+                    placeholderTextColor={colors.secondary}
+                    keyboardType={keyboardType}
+                    secureTextEntry={secureTextEntry && !showPassword}
+                    multiline={label.includes('DESCRIPTION')}
+                    numberOfLines={label.includes('DESCRIPTION') ? 4 : 1}
+                />
+                {field === 'password' && (
+                    <Pressable 
+                        style={{ position: 'absolute', right: 15, top: '25%' }}
+                        onPress={() => setShowPassword(!showPassword)}
+                    >
+                        <Ionicons 
+                            name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                            size={20} 
+                            color={colors.secondary} 
+                        />
+                    </Pressable>
+                )}
+            </View>
         </View>
     );
 
@@ -246,29 +283,38 @@ export default function AddMember() {
         if (type === 'membership') {
             details = membershipPlans.find(p => p.name === value);
             if (!details) return null;
-            const originalPrice = parseInt(details.price);
+            const originalPrice = parseInt(details.price) || 0;
+            const extra = isRenew ? Number(carriedBalance) : 0;
             const discountAmount = parseInt(formData.discount) || 0;
-            const finalPrice = Math.max(0, originalPrice - discountAmount);
+            const finalPrice = Math.max(0, originalPrice + extra - discountAmount);
 
             return (
                 <View style={styles.planCard}>
                     <View style={styles.planDetailRow}>
-                        <Text style={styles.planDetailLabel}>Original Price: </Text>
-                        <Text style={[styles.planDetailValue, discountAmount > 0 && { textDecorationLine: 'line-through', opacity: 0.6 }]}>₹{details.price}</Text>
+                        <Text style={styles.planDetailLabel}>Plan Price: </Text>
+                        <Text style={styles.planDetailValue}>₹{originalPrice}</Text>
                     </View>
-                    {discountAmount > 0 && (
-                        <>
-                            <View style={styles.planDetailRow}>
-                                <Text style={styles.planDetailLabel}>Discount: </Text>
-                                <Text style={[styles.planDetailValue, { color: colors.success }]}>-₹{discountAmount}</Text>
-                            </View>
-                            <View style={styles.planDetailRow}>
-                                <Text style={styles.planDetailLabel}>Total To Pay: </Text>
-                                <Text style={[styles.planDetailValue, { color: colors.primary, fontSize: 18, fontWeight: 'bold' }]}>₹{finalPrice}</Text>
-                            </View>
-                        </>
+                    
+                    {extra > 0 && (
+                        <View style={styles.planDetailRow}>
+                            <Text style={styles.planDetailLabel}>Previous Balance: </Text>
+                            <Text style={[styles.planDetailValue, { color: colors.error }]}>+₹{extra}</Text>
+                        </View>
                     )}
-                    <View style={styles.planDetailRow}>
+
+                    {discountAmount > 0 && (
+                        <View style={styles.planDetailRow}>
+                            <Text style={styles.planDetailLabel}>Discount: </Text>
+                            <Text style={[styles.planDetailValue, { color: colors.success }]}>-₹{discountAmount}</Text>
+                        </View>
+                    )}
+
+                    <View style={[styles.planDetailRow, { marginTop: 5, paddingTop: 5, borderTopWidth: 1, borderTopColor: colors.border }]}>
+                        <Text style={[styles.planDetailLabel, { fontWeight: 'bold' }]}>Total to Pay: </Text>
+                        <Text style={[styles.planDetailValue, { color: colors.primary, fontSize: 18, fontWeight: 'bold' }]}>₹{finalPrice}</Text>
+                    </View>
+
+                    <View style={[styles.planDetailRow, { marginTop: 10 }]}>
                         <Text style={styles.planDetailLabel}>Duration: </Text>
                         <Text style={styles.planDetailValue}>{details.duration}</Text>
                     </View>
@@ -300,7 +346,7 @@ export default function AddMember() {
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.headerTitle}>
-                {isUpdate ? 'Update Profile' : `Add New ${type === 'trainer' ? 'Trainer' : 'Member'}`}
+                {isRenew ? 'Membership Renewal' : (isUpdate ? 'Update Profile' : `Add New ${type === 'trainer' ? 'Trainer' : 'Member'}`)}
             </Text>
 
             {/* Image Placeholder */}
@@ -325,7 +371,7 @@ export default function AddMember() {
                 </View>
             </View>
             {renderInput('PHONE NUMBER *', 'phone', 'e.g. 9876543210', 'phone-pad')}
-            {renderInput('EMAIL (Optional)', 'email', 'e.g. john@example.com', 'email-address')}
+            {renderInput('EMAIL ADDRESS *', 'email', 'e.g. john@example.com', 'email-address')}
 
             <View style={styles.row}>
                 <View style={[styles.oneThirdWidth, { flex: 2 }]}>

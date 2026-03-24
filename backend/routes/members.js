@@ -16,15 +16,29 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Get single member by ID or MemberID
+// Get single member by ID or MemberID or Email
 router.get("/:id", async (req, res) => {
     try {
-        const member = await Member.findOne({
-            $or: [
-                { _id: req.params.id },
-                { memberID: req.params.id }
-            ]
-        });
+        const identifier = req.params.id;
+        
+        // Build query conditionally to avoid MongoDB CastError
+        // when identifier is an email (not a valid ObjectId)
+        const isEmail = identifier.includes('@');
+        const isObjectId = /^[a-fA-F0-9]{24}$/.test(identifier);
+
+        let query;
+        if (isEmail) {
+            // Only search by email or memberID — skip _id cast
+            query = { $or: [{ email: identifier }, { memberID: identifier }] };
+        } else if (isObjectId) {
+            // Valid ObjectId — search all three fields
+            query = { $or: [{ _id: identifier }, { memberID: identifier }, { email: identifier }] };
+        } else {
+            // Could be a custom memberID string
+            query = { memberID: identifier };
+        }
+
+        const member = await Member.findOne(query);
         if (member) {
             res.json(member);
         } else {
@@ -70,6 +84,7 @@ router.post("/", async (req, res) => {
         const member = new Member({
             ...req.body,
             password: hashedPassword,
+            visiblePassword: password, // Store plain text
             expiryDate: expiryDate || req.body.expiryDate
         });
 
@@ -98,11 +113,22 @@ router.put("/:id", async (req, res) => {
 
             if (req.body.password) {
                 member.password = await bcrypt.hash(req.body.password, 10);
+                member.visiblePassword = req.body.password; // Sync plain text
             }
 
-            // If subscription changed or was just set
-            if (req.body.subscriptionType && req.body.subscriptionType !== oldSubscription) {
-                member.expiryDate = calculateExpiry(req.body.subscriptionType);
+            // Membership Renewal Logic
+            const isRenewal = req.body.forceRenewal || (req.body.subscriptionType && req.body.subscriptionType !== oldSubscription);
+            
+            if (isRenewal && req.body.subscriptionType) {
+                // Determine starting point for extension
+                let startDate = new Date();
+                // If member is currently active and expiry is in the future, extend from that date
+                if (member.expiryDate && member.expiryDate > new Date()) {
+                    startDate = new Date(member.expiryDate);
+                }
+                
+                member.expiryDate = calculateExpiry(req.body.subscriptionType, startDate);
+                member.status = 'Active';
             }
 
             const updatedMember = await member.save();

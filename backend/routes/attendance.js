@@ -1,16 +1,18 @@
 import express from "express";
 import Attendance from "../models/Attendance.js";
 import Member from "../models/Member.js";
+import Gym from "../models/Gym.js";
 
 const router = express.Router();
 
 // Get attendance for a specific date and session
 router.get("/", async (req, res) => {
     try {
-        const { date, session } = req.query;
+        const { date, session, memberId } = req.query;
         let filter = {};
         if (date) filter.date = date;
         if (session) filter.session = session;
+        if (memberId) filter.memberId = memberId;
 
         const records = await Attendance.find(filter).sort({ createdAt: -1 });
         res.json(records);
@@ -65,7 +67,16 @@ router.get("/trend", async (req, res) => {
 // Mark attendance
 router.post("/", async (req, res) => {
     try {
-        const { memberId, session } = req.body;
+        const { memberId, session, accessCode } = req.body;
+        
+        // Validate Access Code if provided (for user-side check-in)
+        if (accessCode) {
+            const gym = await Gym.findOne();
+            if (gym && gym.attendanceCode !== accessCode) {
+                return res.status(403).json({ message: "Invalid Access Code!" });
+            }
+        }
+
         const member = await Member.findById(memberId);
         if (!member) return res.status(404).json({ message: "Member not found" });
 

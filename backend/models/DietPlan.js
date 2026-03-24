@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+const mealSchema = new mongoose.Schema({
+    mealTime: { type: String, required: true },  // e.g. "Morning", "Noon", "Evening", "Night"
+    items: { type: String, required: true },      // e.g. "Nuts, fruits, 100g rice"
+}, { _id: false });
+
 const dietPlanSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -15,9 +20,14 @@ const dietPlanSchema = new mongoose.Schema({
         required: true,
         default: "2000 kcal"
     },
+    mealSchedule: {
+        type: [mealSchema],
+        default: []
+    },
+    // Keep plan for backward compatibility (legacy field)
     plan: {
         type: String,
-        required: true
+        default: ""
     },
     icon: {
         type: String,
