@@ -2,6 +2,7 @@ import express from "express";
 import Member from "../models/Member.js";
 import Transaction from "../models/Transaction.js";
 import Attendance from "../models/Attendance.js";
+import MessageLog from "../models/MessageLog.js";
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ router.get("/stats", async (req, res) => {
         // User said "overview should show the data of the selected date"
         // totalMembers and activeMembers are likely current overall status, but newMembers/revenue/attendance should be date-specific
         const totalMembers = await Member.countDocuments({ role: 'member' });
+        const totalTrainers = await Member.countDocuments({ role: 'trainer' });
         const activeMembers = await Member.countDocuments({ 
             role: 'member', 
             $or: [
@@ -128,11 +130,13 @@ router.get("/stats", async (req, res) => {
 
         res.json({
             totalMembers,
+            totalTrainers,
             activeMembers,
             expiringIn10Days,
             attendance,
             revenue,
             overallRevenue,
+            totalRevenueAllTime: overallRevenue.totalRevenue || 0,
             newMembersToday,
             expiredCount,
             absentCount,
@@ -152,48 +156,84 @@ router.get("/reminders/:type", async (req, res) => {
         const dateStr = today.toISOString().split('T')[0];
         today.setHours(0, 0, 0, 0);
 
+        // Helper: find members who were messaged in the last 2 days for the given reminder type
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const recentlySentLogs = await MessageLog.find({
+            date: { $gte: twoDaysAgo },
+            type: type === 'expired' ? 'expired' : type === 'absent' ? 'absent' : type === 'balance' ? 'balance' : type === 'birthday' ? 'birthday' : type === 'invoices' ? 'invoice' : type
+        });
+        const recentlySentMemberIds = new Set(recentlySentLogs.map(l => l.memberId?.toString()).filter(Boolean));
+        const recentlySentMemberNames = new Set(recentlySentLogs.map(l => l.memberName).filter(Boolean));
+
+        // Filter out recently messaged members (snooze for 2 days)
+        const filterSnoozed = (members) => members.filter(m => {
+            const sentById = recentlySentMemberIds.has(m._id?.toString());
+            const sentByName = recentlySentMemberNames.has(m.name);
+            return !sentById && !sentByName;
+        });
+
         let members = [];
 
         if (type === 'expired') {
-            members = await Member.find({
+            const raw = await Member.find({
                 role: 'member',
                 $or: [
                     { status: 'Expired' },
                     { expiryDate: { $lt: today } }
                 ]
             });
+            members = filterSnoozed(raw);
         } else if (type === 'absent') {
             const twoDaysAgoDate = new Date();
             twoDaysAgoDate.setDate(today.getDate() - 2);
             const twoDaysAgoStr = twoDaysAgoDate.toISOString().split('T')[0];
-            
+
             const recentAttenders = await Attendance.distinct("memberId", {
                 date: { $gte: twoDaysAgoStr }
             });
-            members = await Member.find({
+            const raw = await Member.find({
                 role: 'member',
                 status: 'Active',
                 _id: { $nin: recentAttenders }
             });
+            members = filterSnoozed(raw);
         } else if (type === 'birthday') {
-            const todayMMDD = dateStr.substring(5);
-            members = await Member.find({
+            // Show birthday for today AND up to 2 days ago (belated window)
+            const birthdayMMDDs = [];
+            for (let i = 0; i <= 2; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const mmdd = d.toISOString().split('T')[0].substring(5); // MM-DD
+                birthdayMMDDs.push(mmdd);
+            }
+            const raw = await Member.find({
                 role: 'member',
-                dob: { $regex: `${todayMMDD}$` }
+                $or: birthdayMMDDs.map(mmdd => ({ dob: { $regex: `${mmdd}$` } }))
             });
+            // Enrich with info about whether birthday was today or belated
+            const todayMMDD = dateStr.substring(5);
+            const enriched = raw.map(m => {
+                const dobStr = m.dob || '';
+                const isBelated = !dobStr.endsWith(todayMMDD);
+                return { ...m.toObject(), isBelated };
+            });
+            // Snooze: exclude those already wished in last 2 days  
+            members = filterSnoozed(enriched);
         } else if (type === 'plans') {
             members = await Member.find({
                 role: 'member',
                 $or: [{ workoutPlan: "" }, { workoutPlan: "None" }, { dietPlan: "" }, { dietPlan: "None" }]
             });
         } else if (type === 'balance') {
-            members = await Member.find({
+            const raw = await Member.find({
                 role: 'member',
                 balance: { $gt: 0 }
-            }).sort({ balance: -1 }); // Highest balance first
+            }).sort({ balance: -1 });
+            members = filterSnoozed(raw);
         } else if (type === 'invoices') {
             const pendingInvoices = await Transaction.find({ invoiceSent: false }).populate('memberID');
-            return res.json(pendingInvoices); // Returns direct distinct transaction payload
+            return res.json(pendingInvoices);
         }
 
         res.json(members);

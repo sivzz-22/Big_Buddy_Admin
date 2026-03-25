@@ -88,23 +88,48 @@ export default function MemberDetails() {
         }
     };
 
+    // Smart default message: balance first, expiry fallback
+    const getSmartMessage = (channel) => {
+        const hasBalance = member.balance && Number(member.balance) > 0;
+        const expiryStr = member.expiryDate ? new Date(member.expiryDate).toLocaleDateString() : 'N/A';
+
+        if (hasBalance) {
+            if (channel === 'whatsapp') {
+                return `Hi ${member.name}! 👋 A reminder from *BigBuddy Gym* — you have a pending balance of *₹${member.balance}*. Kindly clear your dues at the earliest. Thank you! 🙏`;
+            } else if (channel === 'mail') {
+                return `Dear ${member.name},\n\nWe would like to remind you that you have a pending balance of ₹${member.balance} at BigBuddy Gym. Please clear your dues at your earliest convenience.\n\nThank you,\nBigBuddy Gym Team`;
+            } else {
+                return `Hi ${member.name}, you have a pending balance of ₹${member.balance} at BigBuddy Gym. Please clear your dues soon!`;
+            }
+        } else {
+            if (channel === 'whatsapp') {
+                return `Hi ${member.name}! 👋 Just a reminder from *BigBuddy Gym* — your membership expires on *${expiryStr}*. Please renew to continue your fitness journey! 💪`;
+            } else if (channel === 'mail') {
+                return `Dear ${member.name},\n\nYour BigBuddy Gym membership expires on ${expiryStr}. Please renew to continue your fitness journey.\n\nRegards,\nBigBuddy Gym Team`;
+            } else {
+                return `Hi ${member.name}, your BigBuddy membership expires on ${expiryStr}. Please renew!`;
+            }
+        }
+    };
+
     const handleSMS = (customMsg) => {
-        const msg = customMsg || `Hi ${member.name}, your BigBuddy membership expires on ${member.expiryDate ? new Date(member.expiryDate).toLocaleDateString() : 'N/A'}. Please renew!`;
+        const msg = customMsg || getSmartMessage('sms');
         Linking.openURL(`sms:${member.phone}?body=${encodeURIComponent(msg)}`);
-        logMessage('SMS', msg, 'expired');
+        logMessage('SMS', msg, member.balance > 0 ? 'balance' : 'expired');
     };
 
     const handleWhatsApp = (customMsg) => {
-        const msg = customMsg || `Hi ${member.name}! 👋 Just a reminder from *BigBuddy Gym* - your membership expires on *${member.expiryDate ? new Date(member.expiryDate).toLocaleDateString() : 'N/A'}*. Please renew to continue your fitness journey!`;
+        const msg = customMsg || getSmartMessage('whatsapp');
         Linking.openURL(`whatsapp://send?phone=${member.phone}&text=${encodeURIComponent(msg)}`);
-        logMessage('WhatsApp', msg, 'expired');
+        logMessage('WhatsApp', msg, member.balance > 0 ? 'balance' : 'expired');
     };
 
     const handleMail = (customMsg) => {
-        const subject = 'BigBuddy Gym - Membership Renewal';
-        const body = customMsg || `Dear ${member.name},\n\nYour BigBuddy Gym membership expires on ${member.expiryDate ? new Date(member.expiryDate).toLocaleDateString() : 'N/A'}. Please renew to continue your fitness journey.\n\nRegards,\nBigBuddy Gym Team`;
+        const hasBalance = member.balance && Number(member.balance) > 0;
+        const subject = hasBalance ? 'BigBuddy Gym - Pending Balance Reminder' : 'BigBuddy Gym - Membership Renewal';
+        const body = customMsg || getSmartMessage('mail');
         Linking.openURL(`mailto:${member.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-        logMessage('Mail', body, 'expired');
+        logMessage('Mail', body, member.balance > 0 ? 'balance' : 'expired');
     };
 
     const handleSendInApp = async () => {
@@ -565,14 +590,14 @@ const getStyles = (colors) => StyleSheet.create({
     },
     quickMsgText: { fontSize: 11, fontWeight: '600' },
 
-    section: { marginBottom: 25 },
+    section: { marginBottom: 28 },
     sectionTitle: {
-        color: colors.secondary, fontSize: 14, marginBottom: 10,
-        textTransform: 'uppercase', letterSpacing: 1,
+        color: colors.secondary, fontSize: 13, marginBottom: 12,
+        textTransform: 'uppercase', letterSpacing: 1.2,
     },
-    card: { backgroundColor: colors.surface, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+    card: { backgroundColor: colors.surface, padding: 18, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
     label: { color: colors.secondary, fontSize: 12, marginBottom: 4 },
-    value: { color: colors.primary, fontSize: 16, marginBottom: 15 },
+    value: { color: colors.primary, fontSize: 16, marginBottom: 18 },
     valueNoMargin: { color: colors.primary, fontSize: 16 },
     mainUpdateBtn: {
         flexDirection: 'row', backgroundColor: colors.primary,

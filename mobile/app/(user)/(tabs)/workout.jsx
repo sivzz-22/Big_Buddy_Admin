@@ -24,6 +24,9 @@ const UserWorkout = () => {
     const [workoutStreak, setWorkoutStreak] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
 
+    const today = new Date().toISOString().split('T')[0];
+    const isEditable = selectedDate >= today;
+
     const onRefresh = async () => {
         setRefreshing(true);
         await fetchData();
@@ -95,9 +98,9 @@ const UserWorkout = () => {
                     const exercises = getExercisesList(p);
                     setWorkoutLogs(exercises.map(ex => ({
                         exercise: ex.name,
-                        reps: ex.reps || '',
-                        sets: ex.sets || '',
-                        weight: ex.kg || ''
+                        reps: '0',
+                        sets: '0',
+                        weight: '0'
                     })));
                 } else {
                     setWorkoutLogs([]);
@@ -236,6 +239,8 @@ const UserWorkout = () => {
         <ScrollView
             style={styles.container}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
         >
             {/* Header Card */}
@@ -302,28 +307,31 @@ const UserWorkout = () => {
                             <Text style={styles.exerciseTitle} numberOfLines={2}>{log.exercise}</Text>
                         </View>
                         <TextInput
-                            style={[styles.excelInput, { flex: 1 }]}
+                            style={[styles.excelInput, { flex: 1 }, !isEditable && { color: colors.secondary, backgroundColor: 'transparent' }]}
                             value={log.reps}
-                            onChangeText={v => updateLog(index, 'reps', v)}
+                            onChangeText={v => isEditable && updateLog(index, 'reps', v)}
                             keyboardType="numeric"
                             placeholder="0"
                             placeholderTextColor={colors.secondary}
+                            editable={isEditable}
                         />
                         <TextInput
-                            style={[styles.excelInput, { flex: 1 }]}
+                            style={[styles.excelInput, { flex: 1 }, !isEditable && { color: colors.secondary, backgroundColor: 'transparent' }]}
                             value={log.sets}
-                            onChangeText={v => updateLog(index, 'sets', v)}
+                            onChangeText={v => isEditable && updateLog(index, 'sets', v)}
                             keyboardType="numeric"
                             placeholder="0"
                             placeholderTextColor={colors.secondary}
+                            editable={isEditable}
                         />
                         <TextInput
-                            style={[styles.excelInput, { flex: 1 }]}
+                            style={[styles.excelInput, { flex: 1 }, !isEditable && { color: colors.secondary, backgroundColor: 'transparent' }]}
                             value={log.weight}
-                            onChangeText={v => updateLog(index, 'weight', v)}
+                            onChangeText={v => isEditable && updateLog(index, 'weight', v)}
                             keyboardType="numeric"
                             placeholder="0"
                             placeholderTextColor={colors.secondary}
+                            editable={isEditable}
                         />
                     </View>
                 ))}
@@ -353,7 +361,8 @@ const UserWorkout = () => {
                 </View>
             </View>
 
-            {/* Save Button */}
+            {/* Save Button - only show for today/future */}
+            {isEditable && (
             <Pressable
                 style={[styles.saveBtn, saving && { opacity: 0.7 }]}
                 onPress={handleSaveLogs}
@@ -368,6 +377,13 @@ const UserWorkout = () => {
                     </>
                 )}
             </Pressable>
+            )}
+            {!isEditable && (
+                <View style={[styles.saveBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.secondary} />
+                    <Text style={[styles.saveBtnText, { color: colors.secondary }]}>PAST DATE — VIEW ONLY</Text>
+                </View>
+            )}
 
             {/* ── PROGRESS CHARTS ── */}
             <Text style={styles.chartSectionTitle}>📊 WORKOUT PROGRESS (LAST 7 DAYS)</Text>

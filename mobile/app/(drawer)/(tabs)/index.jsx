@@ -298,7 +298,7 @@ function StatCard({ title, value, icon, color, subtext, onPress, colors }) {
     );
 }
 
-function QuickReportCard({ selectedDate, revenue, newMembersCount, onFilterPress, colors }) {
+function QuickReportCard({ selectedDate, revenue, newMembersCount, colors }) {
     const styles = getStyles(colors);
     const { totalRevenue = 0, gpayRevenue = 0, upiRevenue = 0, cashRevenue = 0 } = revenue || {};
     const totalGpay = gpayRevenue + upiRevenue;
@@ -306,11 +306,11 @@ function QuickReportCard({ selectedDate, revenue, newMembersCount, onFilterPress
     return (
         <View style={[styles.reportContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.reportHeader}>
-                <Text style={[styles.reportDate, { color: colors.text }]}>{selectedDate} - {selectedDate}</Text>
-                <Pressable style={[styles.filterBadge, { backgroundColor: colors.surface }]} onPress={onFilterPress}>
-                    <Text style={[styles.filterText, { color: colors.text }]}>Select Date</Text>
-                    <Ionicons name="caret-down" size={12} color={colors.text} style={{ marginLeft: 4 }} />
-                </Pressable>
+                <Text style={[styles.reportDate, { color: colors.text }]}>{selectedDate}</Text>
+                <View style={[styles.filterBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <Ionicons name="calendar" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                    <Text style={[styles.filterText, { color: colors.primary }]}>Daily Report</Text>
+                </View>
             </View>
 
             <View style={styles.reportGrid}>
@@ -602,7 +602,6 @@ export default function Dashboard() {
                 selectedDate={selectedDate}
                 revenue={s.revenue}
                 newMembersCount={s.newMembersToday}
-                onFilterPress={() => setShowPicker(true)}
                 colors={colors}
             />
 

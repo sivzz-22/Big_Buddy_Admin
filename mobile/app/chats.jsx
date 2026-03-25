@@ -78,8 +78,11 @@ export default function MessagesHistory() {
                     messageBody = `Hi ${m.name}, we haven't seen you at the gym for a few days! Consistency is key. Hope to see you back working out soon.`;
                     msgType = 'warning';
                 } else if (type === 'birthday') {
-                    title = 'Birthday Wish';
-                    messageBody = `Happy Birthday ${m.name}! 🎂 Wishing you a fantastic day and a healthy year ahead from the team at BigBuddy Gym!`;
+                    const isBelated = m.isBelated;
+                    title = isBelated ? 'Belated Birthday Wish' : 'Birthday Wish';
+                    messageBody = isBelated
+                        ? `Happy Belated Birthday ${m.name}! 🎊 Sorry for the delay — wishing you a wonderful year ahead with great health and fitness! From the team at BigBuddy Gym!`
+                        : `Happy Birthday ${m.name}! 🎂 Wishing you a fantastic day and a healthy year ahead from the team at BigBuddy Gym!`;
                     msgType = 'success';
                 } else if (type === 'plans') {
                     title = 'Plan Update';

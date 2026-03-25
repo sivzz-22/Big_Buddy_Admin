@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, FlatList, Pressable, TextInput,
     Modal, Alert, ScrollView, ActivityIndicator
 } from 'react-native';
+
 import { Stack, router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../constants/ThemeContext';
@@ -247,7 +248,7 @@ export default function WorkoutPlans() {
                             </Pressable>
                         </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false}>
+                        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                             {/* Title */}
                             <Text style={styles.label}>Plan Title</Text>
                             {isEditMode ? (
@@ -384,6 +385,7 @@ export default function WorkoutPlans() {
                     </View>
                 </View>
             </Modal>
+
         </View>
     );
 }

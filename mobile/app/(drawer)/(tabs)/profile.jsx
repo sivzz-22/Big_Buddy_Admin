@@ -69,9 +69,9 @@ export default function Profile() {
             ]);
             setGymInfo(gymRes.data);
             setStats({
-                totalMembers: statsRes.data.totalMembers,
-                totalTrainers: statsRes.data.totalTrainers,
-                totalRevenueAllTime: statsRes.data.totalRevenueAllTime
+                totalMembers: statsRes.data.totalMembers || 0,
+                totalTrainers: statsRes.data.totalTrainers || 0,
+                totalRevenueAllTime: statsRes.data.totalRevenueAllTime || statsRes.data.overallRevenue?.totalRevenue || 0
             });
             setTempGymInfo(gymRes.data);
         } catch (error) {

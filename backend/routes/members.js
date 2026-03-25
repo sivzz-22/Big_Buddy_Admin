@@ -16,6 +16,24 @@ router.get("/", async (req, res) => {
     }
 });
 
+// Get count of members who joined this month (for auto MemberID generation)
+router.get("/count/monthly", async (req, res) => {
+    try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        const count = await Member.countDocuments({
+            role: 'member',
+            joinDate: { $gte: startOfMonth, $lte: endOfMonth }
+        });
+        res.json({ count });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+
+
 // Get single member by ID or MemberID or Email
 router.get("/:id", async (req, res) => {
     try {

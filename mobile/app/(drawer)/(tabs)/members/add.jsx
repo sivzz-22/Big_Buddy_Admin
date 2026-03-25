@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Image, Alert, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Image, Alert, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTheme } from '../../../../constants/ThemeContext';
 import { useState, useEffect } from 'react';
@@ -56,6 +56,22 @@ export default function AddMember() {
         loadInitialData();
     }, []);
 
+    // Auto-generate MemberID for new members
+    const generateMemberID = async () => {
+        try {
+            const now = new Date();
+            const year = String(now.getFullYear()).slice(-2); // '26'
+            const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+            const month = monthNames[now.getMonth()]; // 'MAR'
+            const res = await axios.get(`${API_URL}/members/count/monthly`);
+            const seq = String((res.data.count || 0) + 1).padStart(3, '0'); // '001'
+            return `${year}${month}${seq}`; // '26MAR001'
+        } catch (e) {
+            return '';
+        }
+    };
+
+
     const loadInitialData = async () => {
         setFetchingPlans(true);
         try {
@@ -70,6 +86,10 @@ export default function AddMember() {
 
             if (isUpdate && id) {
                 fetchMemberDetails(id);
+            } else if (!isUpdate && type !== 'trainer') {
+                // Auto-generate memberID for new members
+                const autoId = await generateMemberID();
+                if (autoId) setFormData(prev => ({ ...prev, memberID: autoId }));
             }
         } catch (error) {
             console.log("Load initial data error:", error);
@@ -344,6 +364,11 @@ export default function AddMember() {
     };
 
     return (
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        >
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <Text style={styles.headerTitle}>
                 {isRenew ? 'Membership Renewal' : (isUpdate ? 'Update Profile' : `Add New ${type === 'trainer' ? 'Trainer' : 'Member'}`)}
@@ -364,7 +389,24 @@ export default function AddMember() {
 
             <View style={styles.row}>
                 <View style={styles.halfWidth}>
-                    {renderInput('MEMBER ID *', 'memberID', 'e.g. GYM001')}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>MEMBER ID *</Text>
+                        <View style={{ position: 'relative' }}>
+                            <TextInput
+                                style={[styles.input, { paddingRight: 40 }]}
+                                value={formData.memberID}
+                                onChangeText={(t) => setFormData({ ...formData, memberID: t })}
+                                placeholder="Auto-generated"
+                                placeholderTextColor={colors.secondary}
+                            />
+                            <Ionicons
+                                name="sparkles"
+                                size={16}
+                                color={colors.primary}
+                                style={{ position: 'absolute', right: 12, top: '30%' }}
+                            />
+                        </View>
+                    </View>
                 </View>
                 <View style={styles.halfWidth}>
                     {renderInput('PASSWORD *', 'password', 'Set a password', 'default', true)}
@@ -452,6 +494,7 @@ export default function AddMember() {
                         </Text>
                     </Pressable>
 
+                    <Text style={[styles.sectionHeader, { marginTop: 30 }]}>Fitness Plans</Text>
                     {renderDropdown('WORKOUT PLAN', 'workoutPlan', workoutPlans, 'workout')}
                     {renderDropdown('DIET PLAN', 'dietPlan', dietPlans, 'diet')}
                 </>
@@ -469,6 +512,7 @@ export default function AddMember() {
                 </View>
             )}
         </ScrollView>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -511,11 +555,11 @@ const getStyles = (colors) => StyleSheet.create({
         color: colors.primary,
         fontSize: 18,
         fontWeight: '600',
-        marginTop: 10,
-        marginBottom: 15,
+        marginTop: 15,
+        marginBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
-        paddingBottom: 5,
+        paddingBottom: 8,
     },
     inputGroup: {
         marginBottom: 20,
@@ -672,9 +716,10 @@ const getStyles = (colors) => StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.primary + '1A',
-        paddingVertical: 12,
-        borderRadius: 10,
+        paddingVertical: 14,
+        borderRadius: 12,
         marginTop: 10,
+        marginBottom: 8,
         borderWidth: 1,
         borderColor: colors.primary,
         gap: 8,
