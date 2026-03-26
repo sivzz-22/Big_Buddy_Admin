@@ -5,12 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../constants/ThemeContext';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../constants/Config';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
+import { API_URL, GOOGLE_WEB_CLIENT_ID } from '../constants/Config';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: GOOGLE_WEB_CLIENT_ID,
+});
 
 
 const Login = () => {
@@ -54,37 +54,18 @@ const Login = () => {
     }
   };
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '687882042904-mcrm59ihlhohef5ltm1bvqa2cm1ts060.apps.googleusercontent.com',
-    androidClientId: '687882042904-mcrm59ihlhohef5ltm1bvqa2cm1ts060.apps.googleusercontent.com',
-    iosClientId: '687882042904-mcrm59ihlhohef5ltm1bvqa2cm1ts060.apps.googleusercontent.com',
-    redirectUri: makeRedirectUri({
-      useProxy: true,
-    }),
-  });
-
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      handleGoogleAuth(authentication.accessToken);
-    }
-  }, [response]);
-
-  const handleGoogleAuth = async (token) => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      // Get user info from Google API
-      const googleUserRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      const { name, email, sub } = googleUserRes.data;
-
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      const user = userInfo.user || userInfo.data?.user || userInfo; // Handle different google-signin versions
+      
       // Authenticate with our backend
       const res = await axios.post(`${API_URL}/auth/google`, {
-        name,
-        email,
-        googleId: sub
+        name: user.name,
+        email: user.email,
+        googleId: user.id
       });
 
       if (res.data.token) {
@@ -99,15 +80,19 @@ const Login = () => {
         }
       }
     } catch (error) {
-      console.log("Google Auth error:", error);
-      Alert.alert("Error", "Google authentication failed.");
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log('User cancelled the login flow');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        console.log('Sign in is in progress already');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("Error", "Play services are not available or outdated.");
+      } else {
+        console.log("Google Auth error:", error);
+        Alert.alert("Error", "Google authentication failed.");
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    promptAsync();
   };
 
 
